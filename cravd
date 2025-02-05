@@ -1,0 +1,125 @@
+#!/bin/sh
+
+function build {
+    curl -OL https://dl.google.com/android/repository/commandlinetools-mac-9477386_latest.zip
+    unzip commandlinetools-mac-9477386_latest.zip
+    rm -rf commandlinetools-mac-9477386_latest.zip
+
+    mkdir android-emulator-standalone
+    cd android-emulator-standalone
+    mv ../cmdline-tools ./
+    cd cmdline-tools
+    mkdir tools
+    cd tools
+    mv ../* ./
+    cd ../../
+
+    set -e
+
+
+    if [[ -z "${ANDROID_EMULATOR_HOME}" ]]; then
+        export ANDROID_EMULATOR_HOME=$PWD
+        export PATH=$ANDROID_EMULATOR_HOME/cmdline-tools/tools/bin/:$PATH
+        export PATH=$ANDROID_EMULATOR_HOME/emulator/:$PATH
+        export PATH=$ANDROID_EMULATOR_HOME/platform-tools/:$PATH
+
+        echo "export ANDROID_EMULATOR_HOME=${PWD}" >> ~/.zshrc
+        echo 'export PATH=$ANDROID_EMULATOR_HOME/cmdline-tools/tools/bin/:$PATH' >> ~/.zshrc
+        echo 'export PATH=$ANDROID_EMULATOR_HOME/emulator/:$PATH' >> ~/.zshrc
+        echo 'export PATH=$ANDROID_EMULATOR_HOME/platform-tools/:$PATH' >> ~/.zshrc
+
+    fi
+
+    machine_arch=$(uname -m)
+    sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.0" "emulator"
+
+    if [ "$machine_arch" == "arm64" ]; then
+
+        sdkmanager --install "system-images;android-33;google_apis_playstore;arm64-v8a"
+
+        echo "no" | avdmanager --verbose create avd --force --name "Android_Emulator_Api_33" --package "system-images;android-33;google_apis_playstore;arm64-v8a" --tag "google_apis_playstore" --abi "arm64-v8a" --device "pixel_4" --sdcard 16000M
+
+    else
+
+        sdkmanager --install "system-images;android-33;google_apis_playstore;x86_64"
+
+        echo "no" | avdmanager --verbose create avd --force --name "Android_Emulator_Api_33" --package "system-images;android-33;google_apis_playstore;x86_64" --tag "google_apis_playstore" --abi "x86_64" --device "pixel_4" --sdcard 16000M
+
+    fi
+
+    sed -i '' '1s/.*/PlayStore.enabled = yes/' ~/.android/avd/Android_Emulator_Api_33.avd/config.ini
+    sed -i '' '70s/.*/hw.keyboard = yes/' ~/.android/avd/Android_Emulator_Api_33.avd/config.ini
+    sed -i '' '82s/.*/hw.ramSize = 2048M/' ~/.android/avd/Android_Emulator_Api_33.avd/config.ini
+    sed -i '' '115s/.*/sdcard.size = 16384 MB/' ~/.android/avd/Android_Emulator_Api_33.avd/config.ini
+
+    echo ''
+    echo '  Emulator sucessfully installed'
+    echo ''
+    echo '  To start your recently created emulator open a new terminal and run the following command:'
+    echo ''
+    echo '  - Only for the first time boot:'
+    echo ''
+    echo '      adb kill-server && emulator @Android_Emulator_Api_33'
+    echo ''
+    echo ''
+    echo '  - Any time after first boot could be used:'
+    echo ''
+    echo '      emulator @Android_Emulator_Api_33'
+    echo ''
+    echo ''
+
+}
+
+function remove {
+    rm -r -f $ANDROID_EMULATOR_HOME
+    rm -r -f ~/.android
+}
+
+if [ "$1" == "build-emulator" ]; then
+    if [ -d "${PWD}/android-emulator-standalone" ]; then
+        echo ""
+        echo "  Your emulator is already installed"
+        echo ""
+        echo ""
+        exit 1
+    else
+        build
+    fi
+elif [ "$1" == "remove-emulator" ]; then
+    remove
+elif [ "$1" == "--help" ]; then
+        echo ""
+        echo "  Before start make sure you have already installed a java version"
+        echo "  if is not the case try this command:"
+        echo ""
+        echo "      brew install --cask adoptopenjdk/openjdk/adoptopenjdk11"
+        echo ""
+        echo "  After that please Run:"
+        echo ""
+        echo "      cravd build-emulator"
+        echo ""
+        echo "  Follow the installation steps that will be prompted in your terminal to complete the installation"
+        echo "  once is finished you can use the following command to open your emulator any time:"
+        echo ""
+        echo '  - Only for the first time boot:'
+        echo ''
+        echo '      adb kill-server && emulator @Android_Emulator_Api_33'
+        echo ''
+        echo '  - Any time after first boot could be used:'
+        echo ''
+        echo '      emulator @Android_Emulator_Api_33'
+        echo ""
+        echo "  To remove completely your emulator please run:"
+        echo ""
+        echo "      cravd remove-emulator"
+        echo ""
+        echo ""
+        exit 1
+else
+    echo ''
+    echo "  Unknown command or not args passed please run:"
+    echo ''
+    echo "      cravd --help"
+    echo ''
+    echo ''
+fi
